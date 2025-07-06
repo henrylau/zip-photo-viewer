@@ -51,6 +51,7 @@ func run(window *app.Window, fileName string) error {
 	var offset f32.Point    // Track drag offset
 	var dragging bool       // Track drag state
 	var dragStart f32.Point // Track drag start position
+	var rotation int        // Track rotation in degrees (0, 90, 180, 270)
 	var tag = new(bool)
 	expl := explorer.NewExplorer(window)
 
@@ -94,6 +95,7 @@ func run(window *app.Window, fileName string) error {
 					key.Filter{Name: "1"},
 					key.Filter{Name: "2"}, // Hotkey for actual size
 					key.Filter{Name: "O"},
+					key.Filter{Name: "R"}, // Hotkey for rotate
 				)
 				if !ok {
 					break
@@ -111,8 +113,8 @@ func run(window *app.Window, fileName string) error {
 								if err != nil {
 									log.Printf("Failed to decode next image: %v", err)
 								}
-								offset = f32.Pt(0, 0) // Reset offset on new image
-
+								// offset = f32.Pt(0, 0) // Reset offset on new image
+								rotation = 0 // Reset rotation on new image
 								// update title
 								updateTitle(window, fileLoader.GetInfo(), img, fileLoader)
 							}
@@ -124,8 +126,8 @@ func run(window *app.Window, fileName string) error {
 								if err != nil {
 									log.Printf("Failed to decode previous image: %v", err)
 								}
-
-								offset = f32.Pt(0, 0) // Reset offset on new image
+								// offset = f32.Pt(0, 0) // Reset offset on new image
+								rotation = 0 // Reset rotation on new image
 								// update title
 								updateTitle(window, fileLoader.GetInfo(), img, fileLoader)
 							}
@@ -133,24 +135,24 @@ func run(window *app.Window, fileName string) error {
 						case "`":
 							if scale == 0.5 {
 								scale = 0
+								offset = f32.Pt(0, 0) // Reset offset when zooming
 							} else {
 								scale = 0.5
 							}
-							offset = f32.Pt(0, 0) // Reset offset when zooming
 						case "1":
 							if scale == 1 {
 								scale = 0
+								offset = f32.Pt(0, 0) // Reset offset when zooming
 							} else {
 								scale = 1
 							}
-							offset = f32.Pt(0, 0) // Reset offset when zooming
 						case "2":
 							if scale == 2 {
 								scale = 0
+								offset = f32.Pt(0, 0) // Reset offset when zooming
 							} else {
 								scale = 2
 							}
-							offset = f32.Pt(0, 0) // Reset offset when zooming
 						case "O":
 							go func() {
 								exts := []string{}
@@ -191,6 +193,9 @@ func run(window *app.Window, fileName string) error {
 								fileLoader = newLoader
 								window.Invalidate()
 							}()
+						case "R":
+							rotation = (rotation + 90) % 360 // Rotate 90 degrees clockwise
+							offset = f32.Pt(0, 0)            // Reset offset when zooming
 						}
 					}
 				}
@@ -232,14 +237,7 @@ func run(window *app.Window, fileName string) error {
 
 			// Draw image
 			if img != nil {
-				// Calculate fit-to-window scale if scale is not set to actual size
-				fitScaleX, fitScaleY := float32(gtx.Constraints.Max.X)/float32(img.Bounds().Dx()), float32(gtx.Constraints.Max.Y)/float32(img.Bounds().Dy())
-				drawScale := scale
-				if scale == 0 {
-					drawScale = min(fitScaleX, fitScaleY)
-				}
-
-				drawImage(gtx, img, drawScale, offset)
+				drawImage(gtx, img, scale, offset, rotation)
 			}
 
 			e.Frame(gtx.Ops)
@@ -263,20 +261,39 @@ func updateTitle(window *app.Window, file loader.FileInfo, img image.Image, load
 	}
 }
 
-func drawImage(gtx layout.Context, img image.Image, scale float32, offset f32.Point) {
-	t := time.Now()
+func drawImage(gtx layout.Context, img image.Image, scale float32, offset f32.Point, rotation int) {
 	imageOp := paint.NewImageOp(img)
 	imageOp.Filter = paint.FilterNearest
 	imageOp.Add(gtx.Ops)
 	imgWidth, imgHeight := float32(img.Bounds().Dx()), float32(img.Bounds().Dy())
-	// Center the image with drag offset
-	centerX := (float32(gtx.Constraints.Max.X) - imgWidth*scale) / 2
-	centerY := (float32(gtx.Constraints.Max.Y) - imgHeight*scale) / 2
+
+	// Adjust dimensions for rotation
+	var drawWidth, drawHeight float32
+	switch rotation {
+	case 90, 270:
+		drawWidth, drawHeight = imgHeight, imgWidth
+	default:
+		drawWidth, drawHeight = imgWidth, imgHeight
+	}
+
+	if scale == 0 {
+		// Calculate fit-to-window scale if scale is not set to actual size
+		fitScaleX, fitScaleY := float32(gtx.Constraints.Max.X)/drawWidth, float32(gtx.Constraints.Max.Y)/drawHeight
+		scale = min(fitScaleX, fitScaleY)
+	}
+
+	// Apply transformations: scale, rotate, and translate
+	// transform := f32.Affine2D{}.
+	// 	Offset(f32.Pt(-imgWidth/2, -imgHeight/2)).
+	// 	Scale(f32.Pt(0, 0), f32.Pt(scale, scale)).
+	// 	Rotate(f32.Pt(0, 0), float32(rotation)*3.1415926535/180).
+	// 	Offset(f32.Pt(float32(gtx.Constraints.Max.X)/2+offset.X, float32(gtx.Constraints.Max.Y)/2+offset.Y))
+
 	transform := f32.Affine2D{}.
 		Scale(f32.Pt(0, 0), f32.Pt(scale, scale)).
-		Offset(f32.Pt(centerX+offset.X, centerY+offset.Y))
+		Rotate(f32.Pt(imgWidth*scale/2, imgHeight*scale/2), float32(rotation)*3.1415926535/180).
+		Offset(f32.Pt(-imgWidth*scale/2+float32(gtx.Constraints.Max.X)/2+offset.X, -imgHeight*scale/2+float32(gtx.Constraints.Max.Y)/2+offset.Y))
+
 	op.Affine(transform).Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
-
-	fmt.Println("draw image", time.Now().Sub(t))
 }
