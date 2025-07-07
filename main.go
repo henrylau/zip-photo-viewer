@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"image"
@@ -23,6 +24,7 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/x/explorer"
+	"github.com/rwcarlsen/goexif/exif"
 )
 
 func main() {
@@ -96,6 +98,7 @@ func run(window *app.Window, fileName string) error {
 					key.Filter{Name: "2"}, // Hotkey for actual size
 					key.Filter{Name: "O"},
 					key.Filter{Name: "R"}, // Hotkey for rotate
+					key.Filter{Name: "I"},
 				)
 				if !ok {
 					break
@@ -152,6 +155,11 @@ func run(window *app.Window, fileName string) error {
 								offset = f32.Pt(0, 0) // Reset offset when zooming
 							} else {
 								scale = 2
+							}
+						case "I":
+							if data, err := fileLoader.Get(); err == nil {
+								imageData, _ := exif.Decode(bytes.NewReader(data))
+								fmt.Println(imageData)
 							}
 						case "O":
 							go func() {
