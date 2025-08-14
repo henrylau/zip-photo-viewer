@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
-	"photoviewer/internal/loader"
-	"photoviewer/internal/viewer"
+
+	"github.com/henrylau/zip-photo-viewer/internal/loader"
+	"github.com/henrylau/zip-photo-viewer/internal/viewer"
 )
 
 func main() {

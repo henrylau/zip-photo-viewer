@@ -1,4 +1,4 @@
-module photoviewer
+module github.com/henrylau/zip-photo-viewer
 
 go 1.24.2
 

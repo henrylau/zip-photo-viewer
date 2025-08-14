@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"photoviewer/internal/helper"
-	"photoviewer/internal/loader"
 	"time"
+
+	"github.com/henrylau/zip-photo-viewer/internal/helper"
+	"github.com/henrylau/zip-photo-viewer/internal/loader"
 
 	"gioui.org/f32"
 	"gioui.org/io/key"

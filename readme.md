@@ -2,7 +2,8 @@
 
 Simple photo viewer written in Go, which supports viewing images in a folder or compressed files like zip/7z without extracting them. By using `gioui` for GUI and image rendering, and `unarr` for archive handling.
 
-### Demo
+### Screens
+![Screenshot](/images/screen.gif)
 
 
 ### Supported formats
@@ -25,6 +26,11 @@ Simple photo viewer written in Go, which supports viewing images in a folder or 
 - `R` to rotate the current image.
 - `O` to load image from different folder or archive files.
 - `` ` `` `1` `2` to zoom in and out from `50%` `100%` and `200%`.
+
+### Build
+```
+go build -o output/photo-viewer cmd/photo-viewer.go
+```
 
 ### Known issues
 - Large zip/7z files may failure to open.

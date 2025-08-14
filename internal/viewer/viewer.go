@@ -5,8 +5,9 @@ import (
 	"image"
 	"log"
 	"os"
-	"photoviewer/internal/helper"
-	"photoviewer/internal/loader"
+
+	"github.com/henrylau/zip-photo-viewer/internal/helper"
+	"github.com/henrylau/zip-photo-viewer/internal/loader"
 
 	"gioui.org/app"
 	"gioui.org/f32"

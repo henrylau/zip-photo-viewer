@@ -7,8 +7,9 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"path"
-	"photoviewer/internal/loader"
 	"strings"
+
+	"github.com/henrylau/zip-photo-viewer/internal/loader"
 
 	"github.com/gen2brain/avif"
 	"golang.org/x/image/webp"
