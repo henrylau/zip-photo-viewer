@@ -18,6 +18,12 @@ before:
 builds:
   - env:
       - CGO_ENABLED=1
+      - >-
+        {{- if eq .Os "windows" }}
+          {{- if eq .Arch "amd64" }}CC=x86_64-w64-mingw32-gcc{{- end }}
+        {{- end }}
+    ldflags:
+    - -s -w -X main.version={{.Version}}  # Strip symbols and add version info.
     goos:
       - windows
       - darwin
@@ -29,11 +35,6 @@ builds:
         goarch: amd64
       - goos: windows
         goarch: arm64
-    overrides:
-      - goos: windows
-        goarch: amd64
-        env:
-          - CC=x86_64-w64-mingw32-gcc
     main: ./cmd/photo-viewer.go
 archives:
   - formats: [tar.gz]

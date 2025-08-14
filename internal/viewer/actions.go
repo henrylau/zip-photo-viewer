@@ -1,11 +1,10 @@
 package viewer
 
 import (
-	"fmt"
-	"log"
 	"os"
 	"time"
 
+	"github.com/gookit/slog"
 	"github.com/henrylau/zip-photo-viewer/internal/helper"
 	"github.com/henrylau/zip-photo-viewer/internal/loader"
 
@@ -21,11 +20,11 @@ func NextImage(v *Viewer, _ *explorer.Explorer) {
 		info := v.Loader().GetInfo()
 		img, err := helper.LoadImage(data, info)
 		if err != nil {
-			log.Printf("Failed to decode next image: %v", err)
+			slog.Errorf("Failed to decode next image: %s", info.Name, err)
 		}
 		v.SetImage(img, info)
 	}
-	fmt.Println("Decode image", time.Now().Sub(t))
+	slog.Debugf("Decode image %s", time.Since(t))
 }
 
 func PrevImage(v *Viewer, _ *explorer.Explorer) {
@@ -35,11 +34,11 @@ func PrevImage(v *Viewer, _ *explorer.Explorer) {
 		info := v.Loader().GetInfo()
 		img, err := helper.LoadImage(data, info)
 		if err != nil {
-			log.Printf("Failed to decode previous image: %v", err)
+			slog.Errorf("Failed to decode next image: %s", info.Name, err)
 		}
 		v.SetImage(img, info)
 	}
-	fmt.Println("Decode image", time.Now().Sub(t))
+	slog.Debugf("Decode image %s", time.Since(t))
 }
 
 func ScaleImage(scale float32) func(*Viewer, *explorer.Explorer) {
@@ -60,33 +59,33 @@ func LoadFile(v *Viewer, expl *explorer.Explorer) {
 		reader, err := expl.ChooseFile(exts...)
 
 		if err != nil {
-			fmt.Println(err)
+			slog.Error(err)
 			return
 		}
 		file, _ := reader.(*os.File)
 		fileName := file.Name()
-		fmt.Println(file, fileName, reader)
+		slog.Info("Load file: %s", file.Name)
 		reader.Close()
 
 		if err := v.Loader().Close(); err != nil {
-			fmt.Println(err)
+			slog.Error(err)
 			return
 		}
 
 		newLoader, err := loader.NewLoader(fileName)
 		if err != nil {
-			fmt.Println(err)
+			slog.Error(err)
 			return
 		}
 
 		data, err := newLoader.Get()
 		if err != nil {
-			fmt.Println(err)
+			slog.Error(err)
 			return
 		}
 		img, err := helper.LoadImage(data, newLoader.GetInfo())
 		if err != nil {
-			fmt.Println(err)
+			slog.Error(err)
 			return
 		}
 
@@ -138,8 +137,3 @@ func LoadActions() []Action {
 		},
 	}
 }
-
-// 	if data, err := v.fileLoader.Get(); err == nil {
-// 		imageData, _ := exif.Decode(bytes.NewReader(data))
-// 		fmt.Println(imageData)
-// 	}

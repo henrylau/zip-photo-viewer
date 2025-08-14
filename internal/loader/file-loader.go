@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/gookit/slog"
 )
 
 type FileLoader struct {
@@ -82,7 +84,7 @@ func (f *FileLoader) ScanFolder() {
 	images := []*ImageFile{}
 	childDir := []string{}
 
-	fmt.Println(f.basePath, f.currentFile)
+	slog.Infof("Path : %s", f.basePath)
 	for _, e := range entries {
 		if !e.IsDir() && f.acceptedExt[strings.ToLower(path.Ext(e.Name()))] {
 			filePath := filepath.Join(f.basePath, e.Name())
@@ -99,14 +101,14 @@ func (f *FileLoader) ScanFolder() {
 				if f.currentFile == filePath {
 					f.current = imageFile
 				}
-				fmt.Println("path", filePath)
 			} else {
-				// TODO: Log error message
+				slog.Errorf("Unable log file info: %s", filePath, err)
 			}
 		} else if e.IsDir() {
 			childDir = append(childDir, e.Name())
 		}
 	}
+	slog.Infof("Total %d files", len(images))
 
 	f.imageFiles = images
 	f.childDir = childDir
@@ -117,8 +119,6 @@ func (f *FileLoader) ScanFolder() {
 		f.current = f.imageFiles[0]
 		f.currentIdx = 0
 	}
-
-	fmt.Println(f.current)
 }
 
 func (f *FileLoader) sort() {
@@ -138,7 +138,7 @@ func (f *FileLoader) Get() ([]byte, error) {
 
 		slot := f.currentIdx % f.cacher.Size
 		if c, err := f.cacher.Get(slot); err == nil && c.index == f.currentIdx && c.data != nil {
-			fmt.Println("Cache hit")
+			slog.Debugf("Cache hit, idx: %d name: %s", c.index, f.current.name)
 			defer func() {
 				go f.preload()
 			}()
@@ -165,13 +165,13 @@ func (f *FileLoader) Get() ([]byte, error) {
 
 		return data, nil
 	}
-	return nil, fmt.Errorf("Image not loaded")
+	return nil, fmt.Errorf("image not loaded")
 }
 
 func (f *FileLoader) preload() {
 	if f.cacheLock.TryLock() {
 		defer f.cacheLock.Unlock()
-		fmt.Println("Preload start")
+		slog.Debug("Preload start")
 		idx := f.currentIdx
 
 		for i := 1; i < f.cacher.Size/2 && idx+i < len(f.imageFiles); i++ {
@@ -180,18 +180,18 @@ func (f *FileLoader) preload() {
 				data, err := os.ReadFile(f.imageFiles[idx+i].filePath)
 				if err != nil {
 					// TODO: Log error
-					fmt.Errorf("Extract file error", err)
+					slog.Errorf("Extract file error", err)
 					return
 				}
 				f.cacher.Set(slot, CacheFile{
 					index: idx + i,
 					data:  data,
 				})
-				fmt.Println("Preload file : ", f.imageFiles[idx+i].name)
+				slog.Debugf("Preload file: %s", f.imageFiles[idx+i].name)
 			}
 		}
 
-		fmt.Println("Preload complete")
+		slog.Debug("Preload complete")
 	}
 }
 

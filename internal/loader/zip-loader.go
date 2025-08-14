@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/gen2brain/go-unarr"
+	"github.com/gookit/slog"
 )
 
 type ZipLoader struct {
@@ -39,7 +40,8 @@ func (z *ZipLoader) ScanFolder() error {
 	if z.archive == nil {
 		return nil
 	}
-	fmt.Println("Loading image")
+
+	slog.Infof("Zip File : %s", z.zipFilePath)
 	images := []*ImageFile{}
 
 	for {
@@ -60,10 +62,7 @@ func (z *ZipLoader) ScanFolder() error {
 				size:     int64(z.archive.Size()),
 				modTime:  z.archive.ModTime(),
 			}
-			fmt.Println(image.name, image.size, image.modTime)
 			images = append(images, image)
-		} else {
-			fmt.Println("Skip file", z.archive.Name())
 		}
 	}
 	if len(images) == 0 {
@@ -72,10 +71,9 @@ func (z *ZipLoader) ScanFolder() error {
 
 	z.imageFiles = images
 
+	slog.Infof("Total %d files", len(images))
+
 	z.sort()
-	for _, i := range images {
-		fmt.Println(i.filePath)
-	}
 	z.current = z.imageFiles[0]
 	z.currentIdx = 0
 
@@ -120,12 +118,12 @@ func (z *ZipLoader) Close() error {
 
 func (z *ZipLoader) Get() ([]byte, error) {
 	if z.current == nil {
-		return nil, fmt.Errorf("Image not loaded")
+		return nil, fmt.Errorf("image not loaded")
 	}
 
 	cacheIdx := z.currentIdx % len(z.cache)
 	if z.cache[cacheIdx].index == z.currentIdx && len(z.cache[cacheIdx].data) != 0 {
-		fmt.Println("Cache hit")
+		slog.Debugf("Cache hit, idx: %d name: %s", z.currentIdx, z.current.name)
 		defer func() {
 			go z.preload()
 		}()
@@ -169,7 +167,7 @@ func (z *ZipLoader) GetInfo() FileInfo {
 func (z *ZipLoader) preload() {
 	if z.cacheLock.TryLock() {
 		defer z.cacheLock.Unlock()
-		fmt.Println("Preload start")
+		slog.Debug("Preload start")
 		idx := z.currentIdx
 		cacheSize := len(z.cache)
 
@@ -180,18 +178,18 @@ func (z *ZipLoader) preload() {
 				data, err := z.archive.ReadAll()
 				if err != nil {
 					// TODO: Log error
-					fmt.Errorf("Extract file error", err)
+					slog.Errorf("Extract file error", err)
 					return
 				}
 				z.cache[cacheIdx] = CacheFile{
 					index: idx + i,
 					data:  data,
 				}
-				fmt.Println("Preload file : ", z.imageFiles[idx+i].name)
+				slog.Debugf("Preload file: %s", z.imageFiles[idx+i].name)
 			}
 		}
 
-		fmt.Println("Preload complete")
+		slog.Debug("Preload complete")
 	}
 }
 

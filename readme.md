@@ -5,17 +5,13 @@ Simple photo viewer written in Go, which supports viewing images in a folder or 
 ### Screens
 ![Screenshot](/images/screen.gif)
 
-
-### Supported formats
-- JPEG
-- PNG
-- WEBP
-- AVIF
-- 7z
-- ZIP
+### Usage
+```
+./zip-photo-viewer <zip-file>|<image-file>
+```
 
 ### Features
-- View images in a folder.
+- View images in a folder, supported format jpeg,png,webp,avif.
 - View images in a zip/7z file without extracting.
 - Cache images for faster loading.
 - Preload next image for smoother navigation.
@@ -33,5 +29,6 @@ go build -o output/photo-viewer cmd/photo-viewer.go
 ```
 
 ### Known issues
+- goreleaser config only able to run in macOS, CI/CD pipeline not able to build darwin binary.
 - Large zip/7z files may failure to open.
 - Large images may take a long time to load.
