@@ -1,3 +1,7 @@
+[![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)](https://golang.org/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/henrylau/zip-photo-viewer)](https://goreportcard.com/report/github.com/henrylau/zip-photo-viewer)
+
+
 # Compress files photo viewer
 
 Simple photo viewer written in Go, which supports viewing images in a folder or compressed files like zip/7z without extracting them. By using `gioui` for GUI and image rendering, and `unarr` for archive handling.
