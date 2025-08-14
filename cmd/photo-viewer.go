@@ -10,13 +10,20 @@ import (
 )
 
 func main() {
+	var debug bool
 	slog.Configure(func(logger *slog.SugaredLogger) {
 		f := logger.Formatter.(*slog.TextFormatter)
 		f.EnableColor = true
+		logger.Level = slog.InfoLevel
 	})
 
+	flag.BoolVar(&debug, "debug", false, "Enable debug log")
 	flag.Parse()
 	file := flag.Arg(0)
+
+	if debug {
+		slog.SetLogLevel(slog.DebugLevel)
+	}
 
 	if file == "" {
 		slog.Fatal("Zip / Image file not provided")
