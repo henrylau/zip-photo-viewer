@@ -4,3 +4,5 @@ assets
 /photoviewer.exe
 /output
 .vscode
+# Added by goreleaser init:
+dist/
