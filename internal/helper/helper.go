@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"path"
-	"photoviewer/loader"
+	"photoviewer/internal/loader"
 	"strings"
 
 	"github.com/gen2brain/avif"
@@ -34,7 +36,7 @@ func FormatFileSize(size int64) string {
 func LoadImage(data []byte, fileInfo loader.FileInfo) (image.Image, error) {
 	reader := bytes.NewReader(data)
 	switch strings.ToLower(path.Ext(fileInfo.Name)) {
-	case ".jpg", ".jpeg", "png":
+	case ".jpg", ".jpeg", ".png":
 		img, _, err := image.Decode(reader)
 		return img, err
 	case ".webp":

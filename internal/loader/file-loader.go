@@ -20,14 +20,14 @@ type FileLoader struct {
 	childDir    []string
 	current     *ImageFile
 	currentIdx  int
-	cache       []CacheFile
+	cacher      Cacher
 	cacheLock   sync.Mutex
 }
 
 func NewFileLoader() *FileLoader {
 	loader := &FileLoader{
 		acceptedExt: map[string]bool{},
-		cache:       make([]CacheFile, CACHE_SIZE),
+		cacher:      NewCacher(CACHE_SIZE),
 	}
 
 	for _, ext := range ACCEPTED_EXT {
@@ -46,7 +46,7 @@ func (f *FileLoader) reset() {
 	f.childDir = nil
 	f.current = nil
 	f.currentIdx = 0
-	f.cache = make([]CacheFile, CACHE_SIZE)
+	f.cacher.Clear()
 }
 
 func (f *FileLoader) Load(fileName string) error {
@@ -136,13 +136,13 @@ func (f *FileLoader) sort() {
 func (f *FileLoader) Get() ([]byte, error) {
 	if f.current != nil {
 
-		cacheIdx := f.currentIdx % len(f.cache)
-		if f.cache[cacheIdx].index == f.currentIdx && len(f.cache[cacheIdx].data) != 0 {
+		slot := f.currentIdx % f.cacher.Size
+		if c, err := f.cacher.Get(slot); err == nil && c.index == f.currentIdx && c.data != nil {
 			fmt.Println("Cache hit")
 			defer func() {
 				go f.preload()
 			}()
-			return f.cache[cacheIdx].data, nil
+			return c.data, nil
 		}
 
 		// load current file
@@ -158,10 +158,10 @@ func (f *FileLoader) Get() ([]byte, error) {
 			return nil, err
 		}
 
-		f.cache[cacheIdx] = CacheFile{
-			index: cacheIdx,
+		f.cacher.Set(slot, CacheFile{
+			index: slot,
 			data:  data,
-		}
+		})
 
 		return data, nil
 	}
@@ -173,21 +173,20 @@ func (f *FileLoader) preload() {
 		defer f.cacheLock.Unlock()
 		fmt.Println("Preload start")
 		idx := f.currentIdx
-		cacheSize := len(f.cache)
 
-		for i := 1; i < cacheSize/2 && idx+i < len(f.imageFiles); i++ {
-			cacheIdx := (idx + i) % cacheSize
-			if f.cache[cacheIdx].index != idx+i {
+		for i := 1; i < f.cacher.Size/2 && idx+i < len(f.imageFiles); i++ {
+			slot := (idx + i) % f.cacher.Size
+			if c, err := f.cacher.Get(slot); err == nil && c.index != idx+1 {
 				data, err := os.ReadFile(f.imageFiles[idx+i].filePath)
 				if err != nil {
 					// TODO: Log error
 					fmt.Errorf("Extract file error", err)
 					return
 				}
-				f.cache[cacheIdx] = CacheFile{
+				f.cacher.Set(slot, CacheFile{
 					index: idx + i,
 					data:  data,
-				}
+				})
 				fmt.Println("Preload file : ", f.imageFiles[idx+i].name)
 			}
 		}

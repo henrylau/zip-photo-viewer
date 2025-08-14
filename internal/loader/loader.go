@@ -15,11 +15,10 @@ const CACHE_SIZE = 10
 type ImageFile struct {
 	name     string
 	filePath string
-	// stat     fs.FileInfo
-	offset  int64
-	size    int64
-	modTime time.Time
-	isDir   bool
+	offset   int64
+	size     int64
+	modTime  time.Time
+	isDir    bool
 }
 
 type FileInfo struct {
@@ -31,6 +30,31 @@ type FileInfo struct {
 type CacheFile struct {
 	data  []byte
 	index int
+}
+
+type Cacher struct {
+	cacheItems []CacheFile
+	Size       int
+}
+
+func NewCacher(size int) Cacher {
+	return Cacher{
+		cacheItems: make([]CacheFile, size),
+		Size:       size,
+	}
+}
+
+func (cacher *Cacher) Get(slot int) (CacheFile, error) {
+	if slot >= cacher.Size {
+		return CacheFile{}, fmt.Errorf("Cacher index out of bound")
+	}
+	return cacher.cacheItems[slot], nil
+}
+func (cacher *Cacher) Set(slot int, cache CacheFile) {
+	cacher.cacheItems[slot] = cache
+}
+func (cacher *Cacher) Clear() {
+	clear(cacher.cacheItems)
 }
 
 type Loader interface {

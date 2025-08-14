@@ -1,0 +1,31 @@
+# Compress files photo viewer
+
+Simple photo viewer written in Go, which supports viewing images in a folder or compressed files like zip/7z without extracting them. By using `gioui` for GUI and image rendering, and `unarr` for archive handling.
+
+### Demo
+
+
+### Supported formats
+- JPEG
+- PNG
+- WEBP
+- AVIF
+- 7z
+- ZIP
+
+### Features
+- View images in a folder.
+- View images in a zip/7z file without extracting.
+- Cache images for faster loading.
+- Preload next image for smoother navigation.
+
+### Control
+- Use `left` and `right` arrow keys to navigate through images.
+- `ESC` to exit the viewer.
+- `R` to rotate the current image.
+- `O` to load image from different folder or archive files.
+- `` ` `` `1` `2` to zoom in and out from `50%` `100%` and `200%`.
+
+### Known issues
+- Large zip/7z files may failure to open.
+- Large images may take a long time to load.
