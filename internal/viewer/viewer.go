@@ -28,6 +28,7 @@ type Viewer struct {
 	fileLoader loader.Loader
 	sourcePath string
 	image      image.Image
+	imageOp    paint.ImageOp
 	rotation   int
 	scale      float32
 	offset     f32.Point
@@ -65,6 +66,12 @@ func (v *Viewer) Main() {
 
 func (v *Viewer) SetImage(image image.Image, info loader.FileInfo) {
 	v.image = image
+	if image != nil {
+		v.imageOp = paint.NewImageOp(image)
+		v.imageOp.Filter = paint.FilterNearest
+	} else {
+		v.imageOp = paint.ImageOp{}
+	}
 	v.updateTitle(info, image)
 }
 
@@ -123,11 +130,11 @@ func (v *Viewer) run() error {
 		if loader.IsPasswordError(err) {
 			v.AskPassword(v.sourcePath, err)
 		} else if err == nil {
-			v.image, err = helper.LoadImage(data, v.fileLoader.GetInfo())
+			img, err := helper.LoadImage(data, v.fileLoader.GetInfo())
 			if err != nil {
 				log.Printf("Failed to decode image: %v", err)
 			} else {
-				v.updateTitle(v.fileLoader.GetInfo(), v.image)
+				v.SetImage(img, v.fileLoader.GetInfo())
 			}
 		} else {
 			log.Printf("Failed to load image: %v", err)
@@ -230,7 +237,7 @@ func (v *Viewer) run() error {
 
 				if v.image != nil {
 					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-					drawImage(gtx, v.image, v.scale, v.offset, v.rotation)
+					drawImage(gtx, v.imageOp, v.image.Bounds(), v.scale, v.offset, v.rotation)
 				}
 				return layout.Dimensions{Size: gtx.Constraints.Max}
 			}
@@ -269,11 +276,9 @@ func (v *Viewer) updateTitle(file loader.FileInfo, img image.Image) {
 	}
 }
 
-func drawImage(gtx layout.Context, img image.Image, scale float32, offset f32.Point, rotation int) {
-	imageOp := paint.NewImageOp(img)
-	imageOp.Filter = paint.FilterNearest
+func drawImage(gtx layout.Context, imageOp paint.ImageOp, bounds image.Rectangle, scale float32, offset f32.Point, rotation int) {
 	imageOp.Add(gtx.Ops)
-	imgWidth, imgHeight := float32(img.Bounds().Dx()), float32(img.Bounds().Dy())
+	imgWidth, imgHeight := float32(bounds.Dx()), float32(bounds.Dy())
 
 	// Adjust dimensions for rotation
 	var drawWidth, drawHeight float32
