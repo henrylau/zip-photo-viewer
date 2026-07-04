@@ -161,7 +161,7 @@ func (f *FileLoader) Get() ([]byte, error) {
 		}
 
 		f.cacher.Set(slot, CacheFile{
-			index: slot,
+			index: f.currentIdx,
 			data:  data,
 		})
 
@@ -178,7 +178,7 @@ func (f *FileLoader) preload() {
 
 		for i := 1; i < f.cacher.Size/2 && idx+i < len(f.imageFiles); i++ {
 			slot := (idx + i) % f.cacher.Size
-			if c, err := f.cacher.Get(slot); err == nil && c.index != idx+1 {
+			if c, err := f.cacher.Get(slot); err == nil && c.index != idx+i {
 				data, err := os.ReadFile(f.imageFiles[idx+i].filePath)
 				if err != nil {
 					// TODO: Log error
