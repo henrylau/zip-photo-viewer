@@ -70,31 +70,38 @@ func LoadFile(v *Viewer, expl *explorer.Explorer) {
 		}
 		file, _ := reader.(*os.File)
 		fileName := file.Name()
-		slog.Info("Load file: %s", file.Name)
 		reader.Close()
+		openSource(v, fileName)
+	}()
 
-		newLoader, err := loader.NewLoader(fileName)
+}
+
+func OpenAlbumArchive(v *Viewer, path string) {
+	go openSource(v, path)
+}
+
+func openSource(v *Viewer, fileName string) {
+	slog.Info("Load file: %s", fileName)
+	newLoader, err := loader.NewLoader(fileName)
+	if loader.IsPasswordError(err) {
+		v.AskPassword(fileName, err)
+		return
+	}
+	if err != nil {
+		slog.Error(err)
+		return
+	}
+
+	if err := v.applyLoader(newLoader); err != nil {
+		_ = newLoader.Close()
 		if loader.IsPasswordError(err) {
 			v.AskPassword(fileName, err)
 			return
 		}
-		if err != nil {
-			slog.Error(err)
-			return
-		}
-
-		if err := v.applyLoader(newLoader); err != nil {
-			_ = newLoader.Close()
-			if loader.IsPasswordError(err) {
-				v.AskPassword(fileName, err)
-				return
-			}
-			slog.Error(err)
-			return
-		}
-		v.sourcePath = fileName
-	}()
-
+		slog.Error(err)
+		return
+	}
+	v.sourcePath = fileName
 }
 
 func RotateImage(v *Viewer, expl *explorer.Explorer) {

@@ -131,3 +131,89 @@ func TestFileLoader_EntriesAndSeek(t *testing.T) {
 		t.Error("Seek(-1) should fail")
 	}
 }
+
+func TestFileLoader_ChildFoldersAndOpenFolder(t *testing.T) {
+	tmpDir := t.TempDir()
+	aDir := filepath.Join(tmpDir, "a")
+	emptyDir := filepath.Join(tmpDir, "empty")
+	if err := os.Mkdir(aDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(emptyDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	createTestImageFile(tmpDir, "root.jpg")
+	createTestImageFile(aDir, "in-a.jpg")
+
+	loader := NewFileLoader()
+	if err := loader.Load(tmpDir); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	folders := loader.ChildFolders()
+	var names []string
+	for _, f := range folders {
+		names = append(names, f.Name)
+	}
+	foundA := false
+	for _, name := range names {
+		if name == "empty" {
+			t.Fatalf("ChildFolders included empty dir: %v", names)
+		}
+		if name == "a" {
+			foundA = true
+		}
+	}
+	if !foundA {
+		t.Fatalf("ChildFolders = %v, want a", names)
+	}
+
+	if err := loader.OpenFolder(aDir); err != nil {
+		t.Fatalf("OpenFolder failed: %v", err)
+	}
+	entries := loader.Entries()
+	if len(entries) != 1 || entries[0].Name != "in-a.jpg" {
+		t.Fatalf("after OpenFolder entries = %+v", entries)
+	}
+
+	folders = loader.ChildFolders()
+	if len(folders) == 0 || folders[0].Name != ".." {
+		t.Fatalf("ChildFolders from a/ = %+v, want .. first", folders)
+	}
+}
+
+func TestFileLoader_ChildArchives(t *testing.T) {
+	tmpDir := t.TempDir()
+	boxed := filepath.Join(tmpDir, "boxed")
+	if err := os.Mkdir(boxed, 0755); err != nil {
+		t.Fatal(err)
+	}
+	createTestImageFile(tmpDir, "a.jpg")
+	os.WriteFile(filepath.Join(tmpDir, "album.zip"), []byte("zip"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "notes.txt"), []byte("txt"), 0644)
+	os.WriteFile(filepath.Join(boxed, "pics.7z"), []byte("7z"), 0644)
+
+	loader := NewFileLoader()
+	if err := loader.Load(tmpDir); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	archives := loader.ChildArchives()
+	if len(archives) != 1 || archives[0].Name != "album.zip" {
+		t.Fatalf("ChildArchives = %+v, want album.zip", archives)
+	}
+
+	var folderNames []string
+	for _, f := range loader.ChildFolders() {
+		folderNames = append(folderNames, f.Name)
+	}
+	foundBoxed := false
+	for _, name := range folderNames {
+		if name == "boxed" {
+			foundBoxed = true
+		}
+	}
+	if !foundBoxed {
+		t.Fatalf("ChildFolders = %v, want boxed (archive-only folder)", folderNames)
+	}
+}

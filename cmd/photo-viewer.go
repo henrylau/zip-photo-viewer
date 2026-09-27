@@ -27,21 +27,20 @@ func main() {
 		slog.SetLogLevel(slog.DebugLevel)
 	}
 
-	if file == "" {
-		slog.Fatal("Folder / archive / image file not provided")
-		os.Exit(1)
-	}
-
-	fileLoader, err := loader.NewLoaderWithPassword(file, password)
-	if err != nil {
-		if loader.IsPasswordError(err) {
-			v := viewer.NewViewer(nil, file)
-			v.AskPassword(file, err)
-			v.Main()
-			return
+	var fileLoader loader.Loader
+	if file != "" {
+		var err error
+		fileLoader, err = loader.NewLoaderWithPassword(file, password)
+		if err != nil {
+			if loader.IsPasswordError(err) {
+				v := viewer.NewViewer(nil, file)
+				v.AskPassword(file, err)
+				v.Main()
+				return
+			}
+			slog.Fatal(err)
+			os.Exit(1)
 		}
-		slog.Fatal(err)
-		os.Exit(1)
 	}
 
 	v := viewer.NewViewer(fileLoader, file)

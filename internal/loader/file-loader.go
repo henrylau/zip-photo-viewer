@@ -68,7 +68,9 @@ func (f *FileLoader) Load(fileName string) error {
 		f.currentFile = fileName
 	}
 
-	// scan
+	f.cacher.Clear()
+	f.current = nil
+	f.currentIdx = 0
 	f.ScanFolder()
 
 	return nil
@@ -219,6 +221,85 @@ func (f *FileLoader) Seek(index int) ([]byte, error) {
 	f.currentIdx = index
 	f.currentFile = f.current.filePath
 	return f.Get()
+}
+
+func dirHasAlbumContent(dir string, accepted map[string]bool) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if accepted[strings.ToLower(path.Ext(name))] || isArchiveFile(name) {
+			return true
+		}
+	}
+	return false
+}
+
+func dirHasAlbumFolders(dir string, accepted map[string]bool) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.IsDir() && dirHasAlbumContent(filepath.Join(dir, e.Name()), accepted) {
+			return true
+		}
+	}
+	return false
+}
+
+func listArchivesInDir(dir, skip string) []FileInfo {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	archives := []FileInfo{}
+	skip = filepath.Clean(skip)
+	for _, e := range entries {
+		if e.IsDir() || !isArchiveFile(e.Name()) {
+			continue
+		}
+		p := filepath.Join(dir, e.Name())
+		if skip != "" && filepath.Clean(p) == skip {
+			continue
+		}
+		archives = append(archives, FileInfo{Name: e.Name(), FilePath: p})
+	}
+	sort.Slice(archives, func(i, j int) bool {
+		return archives[i].Name < archives[j].Name
+	})
+	return archives
+}
+
+func (f *FileLoader) ChildFolders() []FileInfo {
+	folders := []FileInfo{}
+	parent := filepath.Dir(f.basePath)
+	if parent != f.basePath && (dirHasAlbumContent(parent, f.acceptedExt) || dirHasAlbumFolders(parent, f.acceptedExt)) {
+		folders = append(folders, FileInfo{Name: "..", FilePath: parent})
+	}
+
+	names := append([]string{}, f.childDir...)
+	sort.Strings(names)
+	for _, name := range names {
+		p := filepath.Join(f.basePath, name)
+		if dirHasAlbumContent(p, f.acceptedExt) {
+			folders = append(folders, FileInfo{Name: name, FilePath: p})
+		}
+	}
+	return folders
+}
+
+func (f *FileLoader) ChildArchives() []FileInfo {
+	return listArchivesInDir(f.basePath, "")
+}
+
+func (f *FileLoader) OpenFolder(path string) error {
+	return f.Load(path)
 }
 
 func (f *FileLoader) Entries() []FileInfo {

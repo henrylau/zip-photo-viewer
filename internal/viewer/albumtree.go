@@ -7,10 +7,12 @@ import (
 )
 
 type treeNode struct {
-	name     string
-	path     string
-	index    int // -1 for folders
-	children []*treeNode
+	name        string
+	path        string
+	dirPath     string // disk folder to open; empty for files and archive folders
+	archivePath string // disk archive to open; empty otherwise
+	index       int    // -1 for folders
+	children    []*treeNode
 }
 
 func splitAlbumPath(p string) []string {
@@ -96,7 +98,7 @@ func joinAlbumChild(parent, name string) string {
 	return parent + "/" + name
 }
 
-func buildAlbumTree(entries []loader.FileInfo) []*treeNode {
+func buildAlbumTree(entries []loader.FileInfo, folders []loader.FileInfo, archives []loader.FileInfo) []*treeNode {
 	paths := make([]string, len(entries))
 	for i, e := range entries {
 		paths[i] = e.FilePath
@@ -123,7 +125,43 @@ func buildAlbumTree(entries []loader.FileInfo) []*treeNode {
 		}
 		insertAlbumNode(root, parts, i)
 	}
-	return root.children
+
+	if len(folders) == 0 && len(archives) == 0 {
+		return root.children
+	}
+	nodes := make([]*treeNode, 0, len(folders)+len(archives)+len(root.children))
+	for _, f := range folders {
+		nodes = append(nodes, &treeNode{
+			name:    f.Name,
+			path:    f.FilePath,
+			dirPath: f.FilePath,
+			index:   -1,
+		})
+	}
+	for _, a := range archives {
+		nodes = append(nodes, &treeNode{
+			name:        a.Name,
+			path:        a.FilePath,
+			archivePath: a.FilePath,
+			index:       -1,
+		})
+	}
+	return append(nodes, root.children...)
+}
+
+func firstLeafIndex(n *treeNode) int {
+	if n == nil {
+		return -1
+	}
+	if n.index >= 0 {
+		return n.index
+	}
+	for _, c := range n.children {
+		if i := firstLeafIndex(c); i >= 0 {
+			return i
+		}
+	}
+	return -1
 }
 
 func findNodePath(nodes []*treeNode, index int) []string {

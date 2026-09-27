@@ -90,6 +90,9 @@ type Loader interface {
 	Next() ([]byte, error)
 	Seek(index int) ([]byte, error)
 	Entries() []FileInfo
+	ChildFolders() []FileInfo
+	ChildArchives() []FileInfo
+	OpenFolder(path string) error
 	TotalImage() int
 	Index() int
 	Close() error

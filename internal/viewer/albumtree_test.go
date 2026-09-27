@@ -53,7 +53,7 @@ func TestBuildAlbumTree_FlatFolder(t *testing.T) {
 	tree := buildAlbumTree([]loader.FileInfo{
 		{Name: "a.jpg", FilePath: "/Users/me/photos/a.jpg"},
 		{Name: "b.png", FilePath: "/Users/me/photos/b.png"},
-	})
+	}, nil, nil)
 	if len(tree) != 2 {
 		t.Fatalf("expected 2 root files, got %d", len(tree))
 	}
@@ -70,7 +70,7 @@ func TestBuildAlbumTree_NestedArchive(t *testing.T) {
 		{Name: "01.jpg", FilePath: "album/ch1/01.jpg"},
 		{Name: "02.jpg", FilePath: "album/ch1/02.jpg"},
 		{Name: "01.jpg", FilePath: "album/ch2/01.jpg"},
-	})
+	}, nil, nil)
 	if len(tree) != 2 {
 		t.Fatalf("expected 2 chapter folders, got %d", len(tree))
 	}
@@ -92,7 +92,7 @@ func TestFlattenAlbumTree(t *testing.T) {
 	tree := buildAlbumTree([]loader.FileInfo{
 		{Name: "01.jpg", FilePath: "album/ch1/01.jpg"},
 		{Name: "01.jpg", FilePath: "album/ch2/01.jpg"},
-	})
+	}, nil, nil)
 	collapsed := flattenAlbumTree(tree, map[string]bool{})
 	if len(collapsed) != 2 {
 		t.Fatalf("collapsed rows = %d, want 2 folders", len(collapsed))
@@ -100,5 +100,41 @@ func TestFlattenAlbumTree(t *testing.T) {
 	expanded := flattenAlbumTree(tree, map[string]bool{"ch1": true})
 	if len(expanded) != 3 {
 		t.Fatalf("expanded ch1 rows = %d, want 3", len(expanded))
+	}
+}
+
+func TestBuildAlbumTree_DiskFolders(t *testing.T) {
+	tree := buildAlbumTree(
+		[]loader.FileInfo{{Name: "a.jpg", FilePath: "/photos/a.jpg"}},
+		[]loader.FileInfo{
+			{Name: "..", FilePath: "/"},
+			{Name: "vac", FilePath: "/photos/vac"},
+		},
+		[]loader.FileInfo{{Name: "set.zip", FilePath: "/photos/set.zip"}},
+	)
+	if len(tree) != 4 {
+		t.Fatalf("expected 2 folders + 1 archive + 1 file, got %d", len(tree))
+	}
+	if tree[0].name != ".." || tree[0].dirPath != "/" || tree[0].index != -1 {
+		t.Fatalf("parent folder = %+v", tree[0])
+	}
+	if tree[1].name != "vac" || tree[1].dirPath == "" {
+		t.Fatalf("child folder = %+v", tree[1])
+	}
+	if tree[2].name != "set.zip" || tree[2].archivePath == "" {
+		t.Fatalf("archive = %+v", tree[2])
+	}
+	if tree[3].name != "a.jpg" || tree[3].index != 0 {
+		t.Fatalf("file = %+v", tree[3])
+	}
+}
+
+func TestFirstLeafIndex(t *testing.T) {
+	tree := buildAlbumTree([]loader.FileInfo{
+		{Name: "01.jpg", FilePath: "album/ch1/01.jpg"},
+		{Name: "02.jpg", FilePath: "album/ch1/02.jpg"},
+	}, nil, nil)
+	if got := firstLeafIndex(tree[0]); got != 0 {
+		t.Fatalf("firstLeafIndex = %d, want 0", got)
 	}
 }

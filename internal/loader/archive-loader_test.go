@@ -208,6 +208,34 @@ func TestArchiveLoader_TarGz(t *testing.T) {
 	assertArchiveNavigation(t, path)
 }
 
+func TestArchiveLoader_ParentFolderLink(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := writeZipArchive(t, tmpDir, map[string][]byte{
+		"a.jpg": []byte("fake jpeg a"),
+		"b.png": []byte("fake png b"),
+	})
+	os.WriteFile(filepath.Join(tmpDir, "other.zip"), []byte("zip"), 0644)
+
+	loader := NewArchiveLoader()
+	if err := loader.Load(path); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	folders := loader.ChildFolders()
+	if len(folders) != 1 || folders[0].Name != ".." {
+		t.Fatalf("ChildFolders = %+v, want ..", folders)
+	}
+	if folders[0].FilePath != tmpDir {
+		t.Fatalf(".. path = %s, want %s", folders[0].FilePath, tmpDir)
+	}
+	if got := loader.ChildArchives(); len(got) != 0 {
+		t.Fatalf("ChildArchives = %+v, want none inside an archive", got)
+	}
+	if err := loader.OpenFolder(tmpDir); err == nil {
+		t.Fatal("OpenFolder should fail so the viewer can switch to folder mode")
+	}
+}
+
 func TestIsArchiveFile(t *testing.T) {
 	tests := []struct {
 		name string

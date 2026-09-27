@@ -11,10 +11,10 @@ Simple photo viewer written in Go, which supports viewing images in a folder or 
 
 ### Usage
 ```
-./zip-photo-viewer [--password SECRET] <folder>|<archive-file>|<image-file>
+./zip-photo-viewer [--password SECRET] [<folder>|<archive-file>|<image-file>]
 ```
 
-`--password` is optional. Encrypted 7z/RAR archives can also be unlocked with an in-app dialog. The flag value is visible in the process list; prefer the dialog when that matters.
+If no path is given, the same file picker as `O` opens so you can choose an image or archive. `--password` is optional. Encrypted 7z/RAR archives can also be unlocked with an in-app dialog. The flag value is visible in the process list; prefer the dialog when that matters.
 
 ### Features
 - View images in a folder, supported format jpeg,png,webp,avif.
@@ -25,7 +25,7 @@ Simple photo viewer written in Go, which supports viewing images in a folder or 
 
 ### Control
 - Use `left` and `right` arrow keys to navigate through images.
-- `Space` to toggle the album tree sidebar; click a file to jump to it.
+- `Space` to toggle the album overlay; click a file to jump to it, a folder that contains images or archives to open that album, or an archive file to load it. Inside an archive the list shows only that archive’s contents plus `..` to return to the parent folder. Archive folder rows jump to the first photo in that folder.
 - `ESC` closes the album tree if it is open, otherwise exits the viewer.
 - `R` to rotate the current image.
 - `O` to load image from different folder or archive files.

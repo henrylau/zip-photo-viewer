@@ -7,6 +7,7 @@ import (
 
 	"github.com/gookit/slog"
 	"github.com/henrylau/zip-photo-viewer/internal/helper"
+	"github.com/henrylau/zip-photo-viewer/internal/loader"
 
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -42,6 +43,40 @@ func ToggleAlbum(v *Viewer, _ *explorer.Explorer) {
 	}
 }
 
+func OpenAlbumFolder(v *Viewer, dir string) {
+	if v.Loader() == nil {
+		return
+	}
+	if err := v.Loader().OpenFolder(dir); err != nil {
+		newLoader, nerr := loader.NewLoader(dir)
+		if nerr != nil {
+			slog.Errorf("Open folder failed: %v", nerr)
+			return
+		}
+		old := v.fileLoader
+		v.SetLoader(newLoader)
+		if old != nil {
+			_ = old.Close()
+		}
+	}
+	v.sourcePath = dir
+	if data, err := v.Loader().Get(); err != nil {
+		slog.Errorf("Load folder image failed: %v", err)
+	} else {
+		info := v.Loader().GetInfo()
+		img, err := helper.LoadImage(data, info)
+		if err != nil {
+			slog.Errorf("Failed to decode image: %s", info.Name, err)
+		} else {
+			v.SetImage(img, info)
+		}
+	}
+	v.rebuildAlbumTree()
+	if v.window != nil {
+		v.window.Invalidate()
+	}
+}
+
 func JumpImage(v *Viewer, index int) {
 	if v.Loader() == nil {
 		return
@@ -68,7 +103,7 @@ func (v *Viewer) rebuildAlbumTree() {
 	if v.fileLoader == nil {
 		return
 	}
-	v.albumTree = buildAlbumTree(v.fileLoader.Entries())
+	v.albumTree = buildAlbumTree(v.fileLoader.Entries(), v.fileLoader.ChildFolders(), v.fileLoader.ChildArchives())
 	v.albumSource = v.fileLoader
 	v.expandPathToIndex(v.fileLoader.Index())
 	v.albumHighlight = v.fileLoader.Index()
@@ -182,16 +217,29 @@ func (v *Viewer) layoutAlbumContent(gtx layout.Context, th *material.Theme) layo
 
 func (v *Viewer) layoutAlbumRow(gtx layout.Context, th *material.Theme, row treeRow, clk *widget.Clickable) layout.Dimensions {
 	if clk.Clicked(gtx) {
-		if row.node.index >= 0 {
+		switch {
+		case row.node.archivePath != "":
+			OpenAlbumArchive(v, row.node.archivePath)
+		case row.node.dirPath != "":
+			OpenAlbumFolder(v, row.node.dirPath)
+		case row.node.index >= 0:
 			JumpImage(v, row.node.index)
-		} else {
-			v.albumExpanded[row.node.path] = !v.albumExpanded[row.node.path]
+		default:
+			v.albumExpanded[row.node.path] = true
+			if i := firstLeafIndex(row.node); i >= 0 {
+				JumpImage(v, i)
+			}
 		}
 	}
 
 	label := row.node.name
 	fg := albumRowFg
-	if row.node.index < 0 {
+	if row.node.archivePath != "" {
+		fg = albumFolderFg
+	} else if row.node.dirPath != "" {
+		fg = albumFolderFg
+		label = "▸  " + label
+	} else if row.node.index < 0 {
 		fg = albumFolderFg
 		if v.albumExpanded[row.node.path] {
 			label = "▾  " + label

@@ -40,12 +40,14 @@ type Viewer struct {
 	albumTree      []*treeNode
 	albumSource    loader.Loader
 	albumHighlight int
+	pickOnStart    bool
 }
 
 func NewViewer(fileLoader loader.Loader, sourcePath string) Viewer {
 	return Viewer{
-		fileLoader: fileLoader,
-		sourcePath: sourcePath,
+		fileLoader:  fileLoader,
+		sourcePath:  sourcePath,
+		pickOnStart: fileLoader == nil && sourcePath == "",
 	}
 }
 
@@ -148,6 +150,10 @@ func (v *Viewer) run() error {
 		case app.DestroyEvent:
 			return e.Err
 		case app.FrameEvent:
+			if v.pickOnStart {
+				v.pickOnStart = false
+				LoadFile(v, expl)
+			}
 			ops.Reset()
 			gtx := app.NewContext(&ops, e)
 

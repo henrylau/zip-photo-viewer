@@ -258,6 +258,25 @@ func (a *ArchiveLoader) Seek(index int) ([]byte, error) {
 	return a.Get()
 }
 
+func (a *ArchiveLoader) ChildFolders() []FileInfo {
+	if a.archivePath == "" {
+		return nil
+	}
+	parent := filepath.Dir(a.archivePath)
+	if parent == "" || parent == a.archivePath {
+		return nil
+	}
+	return []FileInfo{{Name: "..", FilePath: parent}}
+}
+
+func (a *ArchiveLoader) ChildArchives() []FileInfo {
+	return nil
+}
+
+func (a *ArchiveLoader) OpenFolder(string) error {
+	return fmt.Errorf("archive album cannot open a disk folder")
+}
+
 func (a *ArchiveLoader) Entries() []FileInfo {
 	entries := make([]FileInfo, len(a.imageFiles))
 	for i, img := range a.imageFiles {
