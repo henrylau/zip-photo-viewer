@@ -1,4 +1,4 @@
-[![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/go-1.27-blue.svg)](https://golang.org/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/henrylau/zip-photo-viewer)](https://goreportcard.com/report/github.com/henrylau/zip-photo-viewer)
 
 
