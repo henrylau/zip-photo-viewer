@@ -28,7 +28,7 @@ func main() {
 	}
 
 	if file == "" {
-		slog.Fatal("Zip / Image file not provided")
+		slog.Fatal("Folder / archive / image file not provided")
 		os.Exit(1)
 	}
 

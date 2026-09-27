@@ -137,5 +137,9 @@ func LoadActions() []Action {
 			Key:     "O",
 			Handler: LoadFile,
 		},
+		{
+			Key:     key.NameSpace,
+			Handler: ToggleAlbum,
+		},
 	}
 }

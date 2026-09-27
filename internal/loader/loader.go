@@ -2,6 +2,7 @@ package loader
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -87,6 +88,8 @@ type Loader interface {
 	Get() ([]byte, error)
 	Prev() ([]byte, error)
 	Next() ([]byte, error)
+	Seek(index int) ([]byte, error)
+	Entries() []FileInfo
 	TotalImage() int
 	Index() int
 	Close() error
@@ -98,6 +101,13 @@ func NewLoader(file string) (Loader, error) {
 
 func NewLoaderWithPassword(file, password string) (Loader, error) {
 	switch {
+	case isDir(file):
+		loader := NewFileLoader()
+
+		if err := loader.Load(file); err != nil {
+			return nil, err
+		}
+		return loader, nil
 	case isArchiveFile(file):
 		loader := NewArchiveLoader()
 
@@ -114,6 +124,11 @@ func NewLoaderWithPassword(file, password string) (Loader, error) {
 		return loader, nil
 	}
 	return nil, fmt.Errorf("FileFormatNotAllowed")
+}
+
+func isDir(file string) bool {
+	info, err := os.Stat(file)
+	return err == nil && info.IsDir()
 }
 
 func isArchiveFile(file string) bool {

@@ -132,6 +132,35 @@ func TestArchiveLoader_Zip(t *testing.T) {
 	assertArchiveNavigation(t, path)
 }
 
+func TestArchiveLoader_Seek(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := writeZipArchive(t, tmpDir, map[string][]byte{
+		"a.jpg": []byte("fake jpeg a"),
+		"b.png": []byte("fake png b"),
+	})
+	loader := NewArchiveLoader()
+	if err := loader.Load(path); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	entries := loader.Entries()
+	if len(entries) != 2 {
+		t.Fatalf("Entries() = %d, want 2", len(entries))
+	}
+	if _, err := loader.Seek(1); err != nil {
+		t.Fatalf("Seek failed: %v", err)
+	}
+	if loader.Index() != 1 {
+		t.Errorf("Index() = %d, want 1", loader.Index())
+	}
+	if loader.GetInfo().Name != entries[1].Name {
+		t.Errorf("GetInfo().Name = %s, want %s", loader.GetInfo().Name, entries[1].Name)
+	}
+	if _, err := loader.Seek(99); err == nil {
+		t.Error("Seek(99) should fail")
+	}
+}
+
 func TestArchiveLoader_ZipWithDummyPassword(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := writeZipArchive(t, tmpDir, map[string][]byte{

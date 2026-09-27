@@ -18,6 +18,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/explorer"
 )
@@ -31,6 +32,14 @@ type Viewer struct {
 	scale      float32
 	offset     f32.Point
 	prompt     *passwordPrompt
+
+	albumOpen      bool
+	albumList      widget.List
+	albumClicks    []widget.Clickable
+	albumExpanded  map[string]bool
+	albumTree      []*treeNode
+	albumSource    loader.Loader
+	albumHighlight int
 }
 
 func NewViewer(fileLoader loader.Loader, sourcePath string) Viewer {
@@ -75,8 +84,9 @@ func (v *Viewer) SetScale(s float32) {
 func (v *Viewer) Loader() loader.Loader {
 	return v.fileLoader
 }
-func (v *Viewer) SetLoader(loader loader.Loader) {
-	v.fileLoader = loader
+func (v *Viewer) SetLoader(l loader.Loader) {
+	v.fileLoader = l
+	v.albumSource = nil
 }
 
 func (v *Viewer) Offset() f32.Point {
@@ -102,6 +112,8 @@ func (v *Viewer) run() error {
 	)
 
 	th := material.NewTheme()
+	v.albumList.Axis = layout.Vertical
+	v.albumHighlight = -1
 
 	// Load initial image
 	if v.fileLoader != nil {
@@ -155,6 +167,10 @@ func (v *Viewer) run() error {
 								}
 								break
 							}
+							if v.albumOpen {
+								v.albumOpen = false
+								break
+							}
 							return nil
 						}
 
@@ -171,45 +187,52 @@ func (v *Viewer) run() error {
 				}
 			}
 
-			// Handle pointer events for dragging
-			if v.prompt == nil {
-				for {
-					event, ok := gtx.Event(
-						pointer.Filter{
-							Target: tag,
-							Kinds:  pointer.Press | pointer.Drag | pointer.Release,
-						},
-					)
-					if !ok {
-						break
-					}
-					switch event := event.(type) {
-					case pointer.Event:
-						switch event.Kind {
-						case pointer.Press:
-							dragging = true
-							dragStart = event.Position
-						case pointer.Drag:
-							if dragging {
-								delta := event.Position.Sub(dragStart)
-								v.offset = v.offset.Add(delta)
-								dragStart = event.Position
+			layoutImage := func(gtx layout.Context) layout.Dimensions {
+				if v.prompt == nil && !v.albumOpen {
+					for {
+						ev, ok := gtx.Event(
+							pointer.Filter{
+								Target: tag,
+								Kinds:  pointer.Press | pointer.Drag | pointer.Release,
+							},
+						)
+						if !ok {
+							break
+						}
+						switch ev := ev.(type) {
+						case pointer.Event:
+							switch ev.Kind {
+							case pointer.Press:
+								dragging = true
+								dragStart = ev.Position
+							case pointer.Drag:
+								if dragging {
+									delta := ev.Position.Sub(dragStart)
+									v.offset = v.offset.Add(delta)
+									dragStart = ev.Position
+								}
+							case pointer.Release:
+								dragging = false
 							}
-						case pointer.Release:
-							dragging = false
 						}
 					}
+
+					pr := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+					event.Op(gtx.Ops, tag)
+					pr.Pop()
 				}
 
-				// Register to listen for pointer Drag events.
-				pr := clip.Rect(image.Rectangle{Max: gtx.Constraints.Max}).Push(gtx.Ops)
-				event.Op(gtx.Ops, tag)
-				pr.Pop()
+				if v.image != nil {
+					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+					drawImage(gtx, v.image, v.scale, v.offset, v.rotation)
+				}
+				return layout.Dimensions{Size: gtx.Constraints.Max}
 			}
 
-			// Draw image
-			if v.image != nil {
-				drawImage(gtx, v.image, v.scale, v.offset, v.rotation)
+			layoutImage(gtx)
+
+			if v.albumOpen && v.prompt == nil {
+				v.layoutAlbumOverlay(gtx, th)
 			}
 
 			if v.layoutPasswordPrompt(gtx, th) {
@@ -266,6 +289,7 @@ func drawImage(gtx layout.Context, img image.Image, scale float32, offset f32.Po
 		Rotate(f32.Pt(imgWidth*scale/2, imgHeight*scale/2), float32(rotation)*3.1415926535/180).
 		Offset(f32.Pt(-imgWidth*scale/2+float32(gtx.Constraints.Max.X)/2+offset.X, -imgHeight*scale/2+float32(gtx.Constraints.Max.Y)/2+offset.Y))
 
-	op.Affine(transform).Add(gtx.Ops)
+	stack := op.Affine(transform).Push(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
+	stack.Pop()
 }

@@ -72,3 +72,62 @@ func TestFileLoader_LoadAndNavigation(t *testing.T) {
 		t.Errorf("Close failed: %v", err)
 	}
 }
+
+func TestNewLoader_Folder(t *testing.T) {
+	tmpDir := t.TempDir()
+	createTestImageFile(tmpDir, "a.jpg")
+	createTestImageFile(tmpDir, "b.png")
+
+	l, err := NewLoader(tmpDir)
+	if err != nil {
+		t.Fatalf("NewLoader(folder) failed: %v", err)
+	}
+	if l.TotalImage() != 2 {
+		t.Errorf("Expected 2 images, got %d", l.TotalImage())
+	}
+	data, err := l.Get()
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if len(data) == 0 {
+		t.Error("Get returned empty data")
+	}
+	if err := l.Close(); err != nil {
+		t.Errorf("Close failed: %v", err)
+	}
+}
+
+func TestFileLoader_EntriesAndSeek(t *testing.T) {
+	tmpDir := t.TempDir()
+	createTestImageFile(tmpDir, "a.jpg")
+	createTestImageFile(tmpDir, "b.png")
+
+	loader := NewFileLoader()
+	if err := loader.Load(tmpDir); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	entries := loader.Entries()
+	if len(entries) != 2 {
+		t.Fatalf("Entries() = %d, want 2", len(entries))
+	}
+
+	target := 1
+	if entries[0].Name != "a.jpg" {
+		target = 0
+	}
+	wantName := entries[target].Name
+
+	if _, err := loader.Seek(target); err != nil {
+		t.Fatalf("Seek failed: %v", err)
+	}
+	if loader.Index() != target {
+		t.Errorf("Index() = %d, want %d", loader.Index(), target)
+	}
+	if loader.GetInfo().Name != wantName {
+		t.Errorf("GetInfo().Name = %s, want %s", loader.GetInfo().Name, wantName)
+	}
+	if _, err := loader.Seek(-1); err == nil {
+		t.Error("Seek(-1) should fail")
+	}
+}

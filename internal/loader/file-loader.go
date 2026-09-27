@@ -211,6 +211,29 @@ func (f *FileLoader) Prev() ([]byte, error) {
 	return f.Get()
 }
 
+func (f *FileLoader) Seek(index int) ([]byte, error) {
+	if index < 0 || index >= len(f.imageFiles) {
+		return nil, fmt.Errorf("index out of range")
+	}
+	f.current = f.imageFiles[index]
+	f.currentIdx = index
+	f.currentFile = f.current.filePath
+	return f.Get()
+}
+
+func (f *FileLoader) Entries() []FileInfo {
+	entries := make([]FileInfo, len(f.imageFiles))
+	for i, img := range f.imageFiles {
+		entries[i] = FileInfo{
+			Name:     img.name,
+			FilePath: img.filePath,
+			Size:     img.size,
+			ModTime:  img.modTime,
+		}
+	}
+	return entries
+}
+
 func (f *FileLoader) TotalImage() int {
 	return len(f.imageFiles)
 }
