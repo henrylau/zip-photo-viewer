@@ -11,7 +11,7 @@ import (
 
 	"github.com/henrylau/zip-photo-viewer/internal/loader"
 
-	"github.com/gen2brain/avif"
+	"github.com/vegidio/avif-go"
 	"golang.org/x/image/webp"
 )
 
