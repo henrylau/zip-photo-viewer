@@ -18,21 +18,36 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/widget"
+	"gioui.org/widget/material"
 	"gioui.org/x/explorer"
 )
 
 type Viewer struct {
 	window     *app.Window
 	fileLoader loader.Loader
+	sourcePath string
 	image      image.Image
 	rotation   int
 	scale      float32
 	offset     f32.Point
+	prompt     *passwordPrompt
+
+	albumOpen      bool
+	albumList      widget.List
+	albumClicks    []widget.Clickable
+	albumExpanded  map[string]bool
+	albumTree      []*treeNode
+	albumSource    loader.Loader
+	albumHighlight int
+	pickOnStart    bool
 }
 
-func NewViewer(fileLoader loader.Loader) Viewer {
+func NewViewer(fileLoader loader.Loader, sourcePath string) Viewer {
 	return Viewer{
-		fileLoader: fileLoader,
+		fileLoader:  fileLoader,
+		sourcePath:  sourcePath,
+		pickOnStart: fileLoader == nil && sourcePath == "",
 	}
 }
 
@@ -71,8 +86,9 @@ func (v *Viewer) SetScale(s float32) {
 func (v *Viewer) Loader() loader.Loader {
 	return v.fileLoader
 }
-func (v *Viewer) SetLoader(loader loader.Loader) {
-	v.fileLoader = loader
+func (v *Viewer) SetLoader(l loader.Loader) {
+	v.fileLoader = l
+	v.albumSource = nil
 }
 
 func (v *Viewer) Offset() f32.Point {
@@ -97,13 +113,24 @@ func (v *Viewer) run() error {
 		app.Title("Photo Preview"),
 	)
 
+	th := material.NewTheme()
+	v.albumList.Axis = layout.Vertical
+	v.albumHighlight = -1
+
 	// Load initial image
-	if data, err := v.fileLoader.Get(); err == nil {
-		v.image, err = helper.LoadImage(data, v.fileLoader.GetInfo())
-		if err != nil {
-			log.Printf("Failed to decode image: %v", err)
+	if v.fileLoader != nil {
+		data, err := v.fileLoader.Get()
+		if loader.IsPasswordError(err) {
+			v.AskPassword(v.sourcePath, err)
+		} else if err == nil {
+			v.image, err = helper.LoadImage(data, v.fileLoader.GetInfo())
+			if err != nil {
+				log.Printf("Failed to decode image: %v", err)
+			} else {
+				v.updateTitle(v.fileLoader.GetInfo(), v.image)
+			}
 		} else {
-			v.updateTitle(v.fileLoader.GetInfo(), v.image)
+			log.Printf("Failed to load image: %v", err)
 		}
 	}
 
@@ -123,6 +150,10 @@ func (v *Viewer) run() error {
 		case app.DestroyEvent:
 			return e.Err
 		case app.FrameEvent:
+			if v.pickOnStart {
+				v.pickOnStart = false
+				LoadFile(v, expl)
+			}
 			ops.Reset()
 			gtx := app.NewContext(&ops, e)
 
@@ -136,7 +167,21 @@ func (v *Viewer) run() error {
 				case key.Event:
 					if event.State == key.Press {
 						if event.Name == key.NameEscape {
+							if v.prompt != nil {
+								if v.cancelPassword() {
+									return nil
+								}
+								break
+							}
+							if v.albumOpen {
+								v.albumOpen = false
+								break
+							}
 							return nil
+						}
+
+						if v.prompt != nil {
+							break
 						}
 
 						for _, action := range actions {
@@ -148,43 +193,56 @@ func (v *Viewer) run() error {
 				}
 			}
 
-			// Handle pointer events for dragging
-			for {
-				event, ok := gtx.Event(
-					pointer.Filter{
-						Target: tag,
-						Kinds:  pointer.Press | pointer.Drag | pointer.Release,
-					},
-				)
-				if !ok {
-					break
-				}
-				switch event := event.(type) {
-				case pointer.Event:
-					switch event.Kind {
-					case pointer.Press:
-						dragging = true
-						dragStart = event.Position
-					case pointer.Drag:
-						if dragging {
-							delta := event.Position.Sub(dragStart)
-							v.offset = v.offset.Add(delta)
-							dragStart = event.Position
+			layoutImage := func(gtx layout.Context) layout.Dimensions {
+				if v.prompt == nil && !v.albumOpen {
+					for {
+						ev, ok := gtx.Event(
+							pointer.Filter{
+								Target: tag,
+								Kinds:  pointer.Press | pointer.Drag | pointer.Release,
+							},
+						)
+						if !ok {
+							break
 						}
-					case pointer.Release:
-						dragging = false
+						switch ev := ev.(type) {
+						case pointer.Event:
+							switch ev.Kind {
+							case pointer.Press:
+								dragging = true
+								dragStart = ev.Position
+							case pointer.Drag:
+								if dragging {
+									delta := ev.Position.Sub(dragStart)
+									v.offset = v.offset.Add(delta)
+									dragStart = ev.Position
+								}
+							case pointer.Release:
+								dragging = false
+							}
+						}
 					}
+
+					pr := clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops)
+					event.Op(gtx.Ops, tag)
+					pr.Pop()
 				}
+
+				if v.image != nil {
+					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+					drawImage(gtx, v.image, v.scale, v.offset, v.rotation)
+				}
+				return layout.Dimensions{Size: gtx.Constraints.Max}
 			}
 
-			// Register to listen for pointer Drag events.
-			pr := clip.Rect(image.Rectangle{Max: gtx.Constraints.Max}).Push(gtx.Ops)
-			event.Op(gtx.Ops, tag)
-			pr.Pop()
+			layoutImage(gtx)
 
-			// Draw image
-			if v.image != nil {
-				drawImage(gtx, v.image, v.scale, v.offset, v.rotation)
+			if v.albumOpen && v.prompt == nil {
+				v.layoutAlbumOverlay(gtx, th)
+			}
+
+			if v.layoutPasswordPrompt(gtx, th) {
+				return nil
 			}
 
 			e.Frame(gtx.Ops)
@@ -193,6 +251,9 @@ func (v *Viewer) run() error {
 }
 
 func (v *Viewer) updateTitle(file loader.FileInfo, img image.Image) {
+	if v.fileLoader == nil {
+		return
+	}
 	if img == nil {
 		title := fmt.Sprintf("%s | %d/%d files | %s | PhotoViewer",
 			file.Name, v.fileLoader.Index()+1, v.fileLoader.TotalImage(), helper.FormatFileSize(file.Size))
@@ -234,6 +295,7 @@ func drawImage(gtx layout.Context, img image.Image, scale float32, offset f32.Po
 		Rotate(f32.Pt(imgWidth*scale/2, imgHeight*scale/2), float32(rotation)*3.1415926535/180).
 		Offset(f32.Pt(-imgWidth*scale/2+float32(gtx.Constraints.Max.X)/2+offset.X, -imgHeight*scale/2+float32(gtx.Constraints.Max.Y)/2+offset.Y))
 
-	op.Affine(transform).Add(gtx.Ops)
+	stack := op.Affine(transform).Push(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
+	stack.Pop()
 }

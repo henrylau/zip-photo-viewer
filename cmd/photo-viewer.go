@@ -11,6 +11,7 @@ import (
 
 func main() {
 	var debug bool
+	var password string
 	slog.Configure(func(logger *slog.SugaredLogger) {
 		f := logger.Formatter.(*slog.TextFormatter)
 		f.EnableColor = true
@@ -18,6 +19,7 @@ func main() {
 	})
 
 	flag.BoolVar(&debug, "debug", false, "Enable debug log")
+	flag.StringVar(&password, "password", "", "Password for encrypted 7z/RAR archives")
 	flag.Parse()
 	file := flag.Arg(0)
 
@@ -25,17 +27,22 @@ func main() {
 		slog.SetLogLevel(slog.DebugLevel)
 	}
 
-	if file == "" {
-		slog.Fatal("Zip / Image file not provided")
-		os.Exit(1)
+	var fileLoader loader.Loader
+	if file != "" {
+		var err error
+		fileLoader, err = loader.NewLoaderWithPassword(file, password)
+		if err != nil {
+			if loader.IsPasswordError(err) {
+				v := viewer.NewViewer(nil, file)
+				v.AskPassword(file, err)
+				v.Main()
+				return
+			}
+			slog.Fatal(err)
+			os.Exit(1)
+		}
 	}
 
-	fileLoader, err := loader.NewLoader(file)
-	if err != nil {
-		slog.Fatal(err)
-		os.Exit(1)
-	}
-
-	viewer := viewer.NewViewer(fileLoader)
-	viewer.Main()
+	v := viewer.NewViewer(fileLoader, file)
+	v.Main()
 }

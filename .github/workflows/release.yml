@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            asset: zip-photo-viewer_Darwin_arm64
+            binary: zip-photo-viewer
+            ext: tar.gz
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            asset: zip-photo-viewer_Windows_x86_64
+            binary: zip-photo-viewer.exe
+            ext: zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install MinGW
+        if: runner.os == 'Windows'
+        run: choco install mingw -y --no-progress
+
+      - name: Test
+        env:
+          CGO_ENABLED: "1"
+        run: go test ./...
+
+      - name: Build
+        env:
+          CGO_ENABLED: "1"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist/staging
+          go build -trimpath -ldflags="-s -w" -o "dist/staging/${{ matrix.binary }}" ./cmd/photo-viewer.go
+          cp LICENSE readme.md dist/staging/
+
+      - name: Package
+        run: |
+          cd dist/staging
+          if [ "${{ matrix.ext }}" = "tar.gz" ]; then
+            tar -czf "../${{ matrix.asset }}.tar.gz" *
+          else
+            tar -a -c -f "../${{ matrix.asset }}.zip" *
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}.${{ matrix.ext }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/*

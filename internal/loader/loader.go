@@ -2,20 +2,45 @@ package loader
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"strings"
 	"time"
 )
 
 var ACCEPTED_EXT = []string{".png", ".jpg", ".jpeg", ".avif", ".webp"}
-var ZIP_EXT = []string{".zip", ".tar", ".rar", ".7z"}
+
+// ARCHIVE_EXT is ordered longest-suffix first so .tar.gz is not treated as .gz.
+var ARCHIVE_EXT = []string{
+	".tar.bz2",
+	".tar.lz4",
+	".tar.zst",
+	".tar.gz",
+	".tar.xz",
+	".tar.sz",
+	".tbz2",
+	".tzst",
+	".txz",
+	".tgz",
+	".cb7",
+	".cbr",
+	".cbt",
+	".cbz",
+	".tar",
+	".rar",
+	".7z",
+	".zip",
+}
+
+// PickerArchiveExt is ARCHIVE_EXT plus last-component filters so OS dialogs
+// can show compressed-tar files (.tar.gz appears as .gz).
+var PickerArchiveExt = append([]string{".gz", ".bz2", ".xz", ".zst", ".lz4", ".sz"}, ARCHIVE_EXT...)
 
 const CACHE_SIZE = 10
 
 type ImageFile struct {
 	name     string
 	filePath string
-	offset   int64
 	size     int64
 	modTime  time.Time
 	isDir    bool
@@ -63,17 +88,33 @@ type Loader interface {
 	Get() ([]byte, error)
 	Prev() ([]byte, error)
 	Next() ([]byte, error)
+	Seek(index int) ([]byte, error)
+	Entries() []FileInfo
+	ChildFolders() []FileInfo
+	ChildArchives() []FileInfo
+	OpenFolder(path string) error
 	TotalImage() int
 	Index() int
 	Close() error
 }
 
 func NewLoader(file string) (Loader, error) {
+	return NewLoaderWithPassword(file, "")
+}
+
+func NewLoaderWithPassword(file, password string) (Loader, error) {
 	switch {
-	case isZipFile(file):
-		loader := NewZipLoader()
+	case isDir(file):
+		loader := NewFileLoader()
 
 		if err := loader.Load(file); err != nil {
+			return nil, err
+		}
+		return loader, nil
+	case isArchiveFile(file):
+		loader := NewArchiveLoader()
+
+		if err := loader.LoadWithPassword(file, password); err != nil {
 			return nil, err
 		}
 		return loader, nil
@@ -88,10 +129,15 @@ func NewLoader(file string) (Loader, error) {
 	return nil, fmt.Errorf("FileFormatNotAllowed")
 }
 
-func isZipFile(file string) bool {
-	ext := strings.ToLower(path.Ext(file))
-	for _, e := range ZIP_EXT {
-		if e == ext {
+func isDir(file string) bool {
+	info, err := os.Stat(file)
+	return err == nil && info.IsDir()
+}
+
+func isArchiveFile(file string) bool {
+	lower := strings.ToLower(file)
+	for _, suf := range ARCHIVE_EXT {
+		if strings.HasSuffix(lower, suf) {
 			return true
 		}
 	}

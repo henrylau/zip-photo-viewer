@@ -14,6 +14,9 @@ import (
 )
 
 func NextImage(v *Viewer, _ *explorer.Explorer) {
+	if v.Loader() == nil {
+		return
+	}
 	t := time.Now()
 
 	if data, err := v.Loader().Next(); err == nil {
@@ -28,6 +31,9 @@ func NextImage(v *Viewer, _ *explorer.Explorer) {
 }
 
 func PrevImage(v *Viewer, _ *explorer.Explorer) {
+	if v.Loader() == nil {
+		return
+	}
 	t := time.Now()
 
 	if data, err := v.Loader().Prev(); err == nil {
@@ -55,7 +61,7 @@ func LoadFile(v *Viewer, expl *explorer.Explorer) {
 	go func() {
 		exts := []string{}
 		exts = append(exts, loader.ACCEPTED_EXT...)
-		exts = append(exts, loader.ZIP_EXT...)
+		exts = append(exts, loader.PickerArchiveExt...)
 		reader, err := expl.ChooseFile(exts...)
 
 		if err != nil {
@@ -64,35 +70,38 @@ func LoadFile(v *Viewer, expl *explorer.Explorer) {
 		}
 		file, _ := reader.(*os.File)
 		fileName := file.Name()
-		slog.Info("Load file: %s", file.Name)
 		reader.Close()
-
-		if err := v.Loader().Close(); err != nil {
-			slog.Error(err)
-			return
-		}
-
-		newLoader, err := loader.NewLoader(fileName)
-		if err != nil {
-			slog.Error(err)
-			return
-		}
-
-		data, err := newLoader.Get()
-		if err != nil {
-			slog.Error(err)
-			return
-		}
-		img, err := helper.LoadImage(data, newLoader.GetInfo())
-		if err != nil {
-			slog.Error(err)
-			return
-		}
-
-		v.SetLoader(newLoader)
-		v.SetImage(img, newLoader.GetInfo())
+		openSource(v, fileName)
 	}()
 
+}
+
+func OpenAlbumArchive(v *Viewer, path string) {
+	go openSource(v, path)
+}
+
+func openSource(v *Viewer, fileName string) {
+	slog.Info("Load file: %s", fileName)
+	newLoader, err := loader.NewLoader(fileName)
+	if loader.IsPasswordError(err) {
+		v.AskPassword(fileName, err)
+		return
+	}
+	if err != nil {
+		slog.Error(err)
+		return
+	}
+
+	if err := v.applyLoader(newLoader); err != nil {
+		_ = newLoader.Close()
+		if loader.IsPasswordError(err) {
+			v.AskPassword(fileName, err)
+			return
+		}
+		slog.Error(err)
+		return
+	}
+	v.sourcePath = fileName
 }
 
 func RotateImage(v *Viewer, expl *explorer.Explorer) {
@@ -134,6 +143,10 @@ func LoadActions() []Action {
 		{
 			Key:     "O",
 			Handler: LoadFile,
+		},
+		{
+			Key:     key.NameSpace,
+			Handler: ToggleAlbum,
 		},
 	}
 }
