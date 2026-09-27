@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/henrylau/zip-photo-viewer/internal/loader"
+	"github.com/vegidio/avif-go"
 )
 
 func TestFormatFileSize(t *testing.T) {
@@ -34,6 +35,16 @@ func TestFormatFileSize(t *testing.T) {
 	}
 }
 
+func createTestAvifBytes() []byte {
+	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
+	img.Set(0, 0, color.RGBA{255, 0, 0, 255})
+	buf := new(bytes.Buffer)
+	if err := avif.Encode(buf, img, &avif.Options{Speed: 10, ColorQuality: 60, AlphaQuality: 60}); err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
+}
+
 func createTestImageBytes(ext string) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
 	img.Set(0, 0, color.RGBA{255, 0, 0, 255})
@@ -55,6 +66,7 @@ func TestLoadImage_SupportedFormats(t *testing.T) {
 		{".jpg", func() []byte { return createTestImageBytes(".jpg") }},
 		{".jpeg", func() []byte { return createTestImageBytes(".jpeg") }},
 		{".png", func() []byte { return createTestImageBytes(".png") }},
+		{".avif", createTestAvifBytes},
 	}
 
 	for _, tt := range tests {
