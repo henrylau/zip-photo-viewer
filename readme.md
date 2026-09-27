@@ -36,7 +36,16 @@ If no path is given, the same file picker as `O` opens so you can choose an imag
 go build -o output/photo-viewer cmd/photo-viewer.go
 ```
 
+### Release
+Push a version tag to build macOS arm64 and Windows x86_64 artifacts and attach them to a GitHub Release:
+
+```
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The `Release` workflow also supports a manual run from the Actions tab (artifacts only, no GitHub Release). CI runs tests on macOS and Windows for pushes and pull requests to `main`.
+
 ### Known issues
-- goreleaser config only able to run in macOS, CI/CD pipeline not able to build darwin binary.
 - Large compressed tarballs may be slower to browse than zip/7z/rar because tar is sequential.
 - Large images may take a long time to load.
