@@ -122,7 +122,7 @@ func LoadActions() []Action {
 		},
 		{
 			Key:     key.NameLeftArrow,
-			Handler: NextImage,
+			Handler: PrevImage,
 		},
 		{
 			Key:     "`",
