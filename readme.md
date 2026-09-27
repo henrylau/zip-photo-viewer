@@ -4,19 +4,22 @@
 
 # Compress files photo viewer
 
-Simple photo viewer written in Go, which supports viewing images in a folder or compressed files like zip/7z without extracting them. By using `gioui` for GUI and image rendering, and `unarr` for archive handling.
+Simple photo viewer written in Go, which supports viewing images in a folder or compressed files like zip/7z/tar without extracting them. By using `gioui` for GUI and image rendering, and [`mholt/archives`](https://github.com/mholt/archives) for archive handling.
 
 ### Screens
 ![Screenshot](/images/screen.gif)
 
 ### Usage
 ```
-./zip-photo-viewer <zip-file>|<image-file>
+./zip-photo-viewer [--password SECRET] <archive-file>|<image-file>
 ```
+
+`--password` is optional. Encrypted 7z/RAR archives can also be unlocked with an in-app dialog. The flag value is visible in the process list; prefer the dialog when that matters.
 
 ### Features
 - View images in a folder, supported format jpeg,png,webp,avif.
-- View images in a zip/7z file without extracting.
+- View images in an archive without extracting. Supported formats: zip, rar, 7z, tar, compressed tar (`.tar.gz`, `.tgz`, `.tar.bz2`, `.tar.xz`, `.tar.zst`, `.tar.lz4`, `.tar.sz`), and comic archives (`.cbz`, `.cbr`, `.cbt`, `.cb7`).
+- Open password-protected 7z/RAR (and `.cb7`/`.cbr`). Password-protected zip/cbz is not supported.
 - Cache images for faster loading.
 - Preload next image for smoother navigation.
 
@@ -34,5 +37,5 @@ go build -o output/photo-viewer cmd/photo-viewer.go
 
 ### Known issues
 - goreleaser config only able to run in macOS, CI/CD pipeline not able to build darwin binary.
-- Large zip/7z files may failure to open.
+- Large compressed tarballs may be slower to browse than zip/7z/rar because tar is sequential.
 - Large images may take a long time to load.
