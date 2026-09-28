@@ -102,11 +102,21 @@ func (v *Viewer) applyLoader(newLoader loader.Loader) error {
 func (v *Viewer) openWithPassword(path, password string) {
 	newLoader, err := loader.NewLoaderWithPassword(path, password)
 	if err != nil {
+		if errors.Is(err, loader.ErrNoMedia) {
+			v.prompt = nil
+			v.ShowNoMedia(path)
+			return
+		}
 		v.setPromptError(err)
 		return
 	}
 	if err := v.applyLoader(newLoader); err != nil {
 		_ = newLoader.Close()
+		if errors.Is(err, loader.ErrNoMedia) {
+			v.prompt = nil
+			v.ShowNoMedia(path)
+			return
+		}
 		v.setPromptError(err)
 		return
 	}

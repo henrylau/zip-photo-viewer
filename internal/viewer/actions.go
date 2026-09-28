@@ -1,6 +1,7 @@
 package viewer
 
 import (
+	"errors"
 	"os"
 	"time"
 
@@ -83,25 +84,28 @@ func OpenAlbumArchive(v *Viewer, path string) {
 func openSource(v *Viewer, fileName string) {
 	slog.Info("Load file: %s", fileName)
 	newLoader, err := loader.NewLoader(fileName)
-	if loader.IsPasswordError(err) {
-		v.AskPassword(fileName, err)
-		return
-	}
 	if err != nil {
-		slog.Error(err)
+		handleOpenError(v, fileName, err)
 		return
 	}
 
 	if err := v.applyLoader(newLoader); err != nil {
 		_ = newLoader.Close()
-		if loader.IsPasswordError(err) {
-			v.AskPassword(fileName, err)
-			return
-		}
-		slog.Error(err)
+		handleOpenError(v, fileName, err)
 		return
 	}
 	v.sourcePath = fileName
+}
+
+func handleOpenError(v *Viewer, fileName string, err error) {
+	switch {
+	case loader.IsPasswordError(err):
+		v.AskPassword(fileName, err)
+	case errors.Is(err, loader.ErrNoMedia):
+		v.ShowNoMedia(fileName)
+	default:
+		slog.Error(err)
+	}
 }
 
 func RotateImage(v *Viewer, expl *explorer.Explorer) {

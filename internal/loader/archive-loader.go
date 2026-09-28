@@ -103,7 +103,7 @@ func (a *ArchiveLoader) ScanFolder() error {
 		return err
 	}
 	if len(images) == 0 {
-		return fmt.Errorf("No Image found")
+		return ErrNoMedia
 	}
 
 	a.imageFiles = images

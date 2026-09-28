@@ -1,12 +1,15 @@
 package loader
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
 	"strings"
 	"time"
 )
+
+var ErrNoMedia = errors.New("no media files found")
 
 var ACCEPTED_EXT = []string{".png", ".jpg", ".jpeg", ".avif", ".webp"}
 

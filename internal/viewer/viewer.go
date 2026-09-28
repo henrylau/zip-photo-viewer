@@ -33,6 +33,7 @@ type Viewer struct {
 	scale      float32
 	offset     f32.Point
 	prompt     *passwordPrompt
+	message    *messagePrompt
 
 	albumOpen      bool
 	albumList      widget.List
@@ -180,6 +181,9 @@ func (v *Viewer) run() error {
 								}
 								break
 							}
+							if v.dismissMessage() {
+								break
+							}
 							if v.albumOpen {
 								v.albumOpen = false
 								break
@@ -187,7 +191,7 @@ func (v *Viewer) run() error {
 							return nil
 						}
 
-						if v.prompt != nil {
+						if v.prompt != nil || v.message != nil {
 							break
 						}
 
@@ -201,7 +205,7 @@ func (v *Viewer) run() error {
 			}
 
 			layoutImage := func(gtx layout.Context) layout.Dimensions {
-				if v.prompt == nil && !v.albumOpen {
+				if v.prompt == nil && v.message == nil && !v.albumOpen {
 					for {
 						ev, ok := gtx.Event(
 							pointer.Filter{
@@ -244,13 +248,14 @@ func (v *Viewer) run() error {
 
 			layoutImage(gtx)
 
-			if v.albumOpen && v.prompt == nil {
+			if v.albumOpen && v.prompt == nil && v.message == nil {
 				v.layoutAlbumOverlay(gtx, th)
 			}
 
 			if v.layoutPasswordPrompt(gtx, th) {
 				return nil
 			}
+			v.layoutMessagePrompt(gtx, th)
 
 			e.Frame(gtx.Ops)
 		}
