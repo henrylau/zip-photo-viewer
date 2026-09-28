@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -120,6 +121,27 @@ func assertArchiveNavigation(t *testing.T, path string) {
 
 	if err := loader.Close(); err != nil {
 		t.Errorf("Close failed: %v", err)
+	}
+}
+
+func TestArchiveLoader_NoMedia(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := writeZipArchive(t, tmpDir, map[string][]byte{
+		"notes.txt": []byte("hello"),
+		"readme.md": []byte("docs"),
+	})
+	loader := NewArchiveLoader()
+	if err := loader.Load(path); !errors.Is(err, ErrNoMedia) {
+		t.Fatalf("Load() error = %v, want ErrNoMedia", err)
+	}
+
+	emptyPath := writeZipArchive(t, t.TempDir(), map[string][]byte{})
+	if err := loader.Load(emptyPath); !errors.Is(err, ErrNoMedia) {
+		t.Fatalf("empty zip Load() error = %v, want ErrNoMedia", err)
+	}
+
+	if _, err := NewLoader(path); !errors.Is(err, ErrNoMedia) {
+		t.Fatalf("NewLoader() error = %v, want ErrNoMedia", err)
 	}
 }
 

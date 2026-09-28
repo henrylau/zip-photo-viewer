@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"os"
 
@@ -35,6 +36,12 @@ func main() {
 			if loader.IsPasswordError(err) {
 				v := viewer.NewViewer(nil, file)
 				v.AskPassword(file, err)
+				v.Main()
+				return
+			}
+			if errors.Is(err, loader.ErrNoMedia) {
+				v := viewer.NewViewer(nil, file)
+				v.ShowNoMedia(file)
 				v.Main()
 				return
 			}
